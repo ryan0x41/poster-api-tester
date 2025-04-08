@@ -37,10 +37,14 @@ Run in one of the following modes:
 
 - `get`: Tests read-only endpoints.
 - `set`: Tests write/update endpoints (creates and deletes test data).
+- `ep`: Tests equivalence partitioning on appropriate endpoints.
+- `bva`: Tests boundary value analysis on appropriate endpoints.
 
 ```bash
 python main.py get
 python main.py set
+python main.py ep
+python main.py bva
 ```
 
 ## Notes
