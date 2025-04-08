@@ -11,9 +11,9 @@ tests_passed = 0
 there are 2 modes, get and set mode
 
 get mode
-	- allows us to talk to endpoints where data is not updated to changed
+    - allows us to talk to endpoints where data is not updated to changed
 set mode
-	- allows us to test endpoints where data is manipulated and uploaded using post/delete/ ...
+    - allows us to test endpoints where data is manipulated and uploaded using post/delete/ ...
 """
 
 def check(response, test_name, expected_key=None):
@@ -22,12 +22,12 @@ def check(response, test_name, expected_key=None):
     expected key at the top level
 
     if successful
-    	tests_passed += 1
+        tests_passed += 1
     """
     global tests_passed
     assert "error" not in response, f"{test_name} FAILED: Response contains error: {response}"
     if expected_key:
-        assert expected_key in response, f"{test_name} FAILED: Expected key '{expected_key}' not found in {response}"
+        assert expected_key in response, f"{test_name} FAILED: expected key '{expected_key}' not found in {response}"
     tests_passed += 1
     print(f"{test_name}: PASS")
 
@@ -144,23 +144,6 @@ def test_set_mode(tester):
     
     # no notif testing for now
     # TODO
-
-#    # 10. create a test notification
-#    notification = tester.test_create_notification("info", updated_username, "test notif message")
-#    check(notification, "", expected_key="")
-#    notification_id = notification.get("notifId") # broke
-    
-#    # 11. get the notification
-#    notif = tester.get_notification(notification_id)
-#    check(notif, "get notification (set mode)")
-    
-#    # 12. mark notif as read
-#    read_notif = tester.read_notification(notification_id)
-#    check(read_notif, "read notification (set mode)")
-    
-#    # 13. delete notif
-#    del_notif = tester.delete_notification(notification_id)
-#    check(del_notif, "Delete Notification (set mode)")
     
     # 14. follow user, (test2 userId here)
     follow = tester.follow_user("c68f1430-35ef-4ebf-a56e-b9d534492f24") # userId for test2 
@@ -221,10 +204,94 @@ def test_set_mode(tester):
     del_account = tester.delete_account(user_id, updated_username, new_password)
     check(del_account, "delete account (new user - set mode)")
 
+def test_equivalence_partitioning(tester):
+    global tests_passed
+    print("\n========== EQUIVALENCE PARTITIONING (EP) ==========")
+
+    # EP1: valid login
+    resp = tester.login_user("test2", "Hello@123")
+    check(resp, "EP1: valid login", expected_key="token")
+
+    # EP2: invalid username, valid password
+    resp = tester.login_user("test3", "Hello@123")
+    assert "error" in resp, f"EP2: expected login to fail with invalid username, got {resp}"
+    print("EP2: invalid username login: PASS")
+    tests_passed +=1
+
+    # EP3: valid username, invalid password
+    resp = tester.login_user("test2", "Hello@234")
+    assert "error" in resp, f"EP3: expected login to fail with invalid password, got {resp}"
+    print("EP3: invalid password login: PASS")
+    tests_passed +=1
+
+    # EP4: valid registration
+    suffix = str(uuid.uuid4())[:8]
+    username = f"epuser_{suffix}"
+    email = f"{username}@example.com"
+    password = "Hello@123"
+    reg = tester.register_user(username, email, password)
+    check(reg, "EP4: valid registration", expected_key="user")
+
+    # EP5: registration with invalid email
+    reg = tester.register_user(f"ep2_{suffix}", "bademail", password)
+    assert "error" in reg, f"EP5: expected registration to fail with invalid email, got {reg}"
+    print("EP5: invalid email registration: PASS")
+    tests_passed +=1
+
+    # EP6: registration with invalid password
+    reg = tester.register_user(f"ep3_{suffix}", f"ep3_{suffix}@example.com", "weakpass")
+    assert "error" in reg, f"EP6: expected registration to fail with invalid password, got {reg}"
+    print("EP6: invalid password registration: PASS")
+    tests_passed +=1
+
+    # EP7: registration with invalid username
+    reg = tester.register_user("A!", f"a_{suffix}@example.com", password)
+    assert "error" in reg, f"EP7: expected registration to fail with invalid username, got {reg}"
+    print("EP7: invalid username registration: PASS")
+    tests_passed +=1
+
+def test_boundary_value_analysis(tester):
+    global tests_passed
+    print("\n========== BOUNDARY VALUE ANALYSIS (BVA) ==========")
+
+    suffix = str(uuid.uuid4())[:4]
+    valid_password = "Aa1@aaaa"  # meets the minimum requirements
+    valid_email = f"bva_{suffix}@example.com"
+
+    # username BVA: exactly 4 characters (minimum valid)
+    username_min = f"u{suffix}"  # 4 characters
+    reg = tester.register_user(username_min, f"{username_min}@example.com", valid_password)
+    check(reg, "BVA1: username length = 4", expected_key="user")
+
+    # username BVA: 3 characters (invalid - too short)
+    username_short = "a1_"
+    reg = tester.register_user(username_short, f"{username_short}@example.com", valid_password)
+    assert "error" in reg, f"BVA2: expected failure for username too short, got {reg}"
+    print("BVA2: username too short: PASS")
+    tests_passed += 1
+
+    # password BVA: 8 characters (minimum valid)
+    valid_min_pass = "Aa1@aaaa"
+    reg = tester.register_user(f"bva_minpass_{suffix}", f"bva_minpass_{suffix}@example.com", valid_min_pass)
+    check(reg, "BVA3: password length = 8", expected_key="user")
+
+    # password BVA: 7 characters (invalid - too short)
+    short_pass = "Aa1@aaa"
+    reg = tester.register_user(f"bva_shortpass_{suffix}", f"bva_shortpass_{suffix}@example.com", short_pass)
+    assert "error" in reg, f"BVA4: expected failure for password too short, got {reg}"
+    print("BVA4: password too short: PASS")
+    tests_passed += 1
+
+    # email BVA: valid edge-case email format
+    edge_email = f'"weird.but.valid"{suffix}@example.com'
+    reg = tester.register_user(f"bva_edgeemail_{suffix}", edge_email, valid_password)
+    check(reg, "BVA5: edge-case valid email", expected_key="user")
+
+
 def main():
     if len(sys.argv) < 2:
-    	# some help
-        print("Usage: python test_all_endpoints.py [get | set | get_set]")
+        # some help
+        print("Usage: python automated.py [get | set | ep | bva ]")
         sys.exit(1)
     
     # mode is first arg (well second because arg1 is the proc name)
@@ -238,8 +305,12 @@ def main():
             test_get_mode(tester)
         elif mode == "set":
             test_set_mode(tester)
+        elif mode == "ep":
+            test_equivalence_partitioning(tester)
+        elif mode == "bva":
+            test_boundary_value_analysis(tester)
         else:
-            print("invalid mode. choose from: get or set")
+            print("invalid mode. choose from: get, set, ep or bva")
             sys.exit(1)
     except AssertionError as e:
         print(f"\nTESTS FAILED after {tests_passed} tests")

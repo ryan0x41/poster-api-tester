@@ -41,10 +41,10 @@ Run in one of the following modes:
 - `bva`: Tests boundary value analysis on appropriate endpoints.
 
 ```bash
-python main.py get
-python main.py set
-python main.py ep
-python main.py bva
+python automated.py get
+python automated.py set
+python automated.py ep
+python automated.py bva
 ```
 
 ## Notes
